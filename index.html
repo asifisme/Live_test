@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shopping Cart</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      #cart-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        width: 300px;
+        background-color: #f9f9f9;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        padding: 16px;
+        overflow-y: auto;
+        max-height: 80vh; 
+      }
+
+      #price-container {
+        position: sticky;
+        bottom: 0;
+        background-color: #fff;
+        padding: 8px 16px;
+        box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+        border-top: 1px solid #e5e5e5;
+      }
+    </style>
+  </head>
+  <body>
+    <section>
+      <div class="grid grid-cols-12 gap-4">
+        <!-- Product List -->
+        <div class="col-start-2 col-span-8">
+          <div id="root" class="flex flex-wrap gap-4 justify-between"></div>
+        </div>
+
+        <!-- Cart Section -->
+        <div id="cart-container">
+          <h2 class="text-xl font-bold mb-4">Cart</h2>
+          <div id="cart" class="mb-4"></div>
+          <div id="price-container">
+            <p class="text-lg font-semibold">
+              Subtotal: $<span id="subtotal">0.00</span>
+            </p>
+            <div id="promo-section" class="mt-4">
+              <input
+                type="text"
+                id="promo-code"
+                class="w-full p-2 border rounded mb-2"
+                placeholder="Enter promo code"
+              />
+              <button
+                id="apply-promo"
+                class="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600"
+              >
+                Apply Promo Code
+              </button>
+              <p id="promo-message" class="text-sm mt-2"></p>
+            </div>
+            <p class="text-lg font-semibold">
+              Discount: $<span id="discount">0.00</span>
+            </p>
+            <p class="text-lg font-semibold">
+              Total Price: $<span id="total-price">0.00</span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <script>
+      const root = document.getElementById("root");
+      const cart = document.getElementById("cart");
+
+      async function ApiCall() {
+        const api_url = "https://fakestoreapi.com/products";
+        fetch(api_url)
+          .then((res) => res.json())
+          .then((res) => {
+            let products = res;
+            products.map((element) => ProductsUpdate(element));
+          });
+      }
+
+      function ProductsUpdate(element) {
+        const card = document.createElement("div");
+        card.setAttribute(
+          "class",
+          "bg-white rounded-lg shadow-lg p-4 flex-none"
+        );
+        card.style.flexBasis = "calc(25% - 1rem)";
+
+        let image_create = document.createElement("img");
+        image_create.setAttribute("src", element.image);
+        image_create.setAttribute(
+          "class",
+          "h-40 w-full object-cover rounded-t-lg"
+        );
+        card.appendChild(image_create);
+
+        const card_body = document.createElement("div");
+        card_body.setAttribute("class", "p-2");
+
+        let price_create = document.createElement("p");
+        let price_text = document.createTextNode(`$${element.price}`);
+        price_create.setAttribute(
+          "class",
+          "text-center font-bold text-lg mt-4"
+        );
+        price_create.appendChild(price_text);
+        card_body.appendChild(price_create);
+
+        let title_create = document.createElement("h3");
+        let title_text = document.createTextNode(element.title);
+        title_create.setAttribute(
+          "class",
+          "text-center text-green-500 text-sm font-medium"
+        );
+        title_create.appendChild(title_text);
+        card_body.appendChild(title_create);
+
+        let button_create = document.createElement("button");
+        let button_text = document.createTextNode("Add to Cart");
+        button_create.setAttribute(
+          "class",
+          "w-full mt-6 bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-all"
+        );
+        button_create.appendChild(button_text);
+        card_body.appendChild(button_create);
+
+        card.appendChild(card_body);
+        root.appendChild(card);
+
+        button_create.addEventListener("click", () =>
+          AddToCart(element.id, element.image, element.price)
+        );
+      }
+
+      let subtotal = 0;
+      let max_item = 5;
+      let product_id = {};
+
+      function AddToCart(id, img, price) {
+        if (product_id[id]) {
+          const existingItem = document.getElementById(`cart-item-${id}`);
+          const quantityElem = existingItem.querySelector(".item-quantity");
+          const priceElem = existingItem.querySelector(".item-price");
+
+          product_id[id].quantity++;
+          quantityElem.textContent = `Qty: ${product_id[id].quantity}`;
+
+          const totalItemPrice = product_id[id].quantity * price;
+          priceElem.textContent = `$${totalItemPrice.toFixed(2)}`;
+
+          subtotal += parseFloat(price);
+          UpdateTotalPrice();
+          return;
+        }
+
+        if (cart.children.length == max_item) {
+          return;
+        }
+
+        product_id[id] = { img, price, quantity: 1 };
+
+        const card = document.createElement("div");
+        card.setAttribute("id", `cart-item-${id}`);
+        card.setAttribute("class", "flex justify-between items-center mb-2");
+
+        let card_img = document.createElement("img");
+        card_img.setAttribute("src", img);
+        card_img.setAttribute("class", "h-[40px] w-[30px] rounded-lg ");
+        card.appendChild(card_img);
+
+        let card_price = document.createElement("p");
+        card_price.setAttribute("class", "text-sm item-price");
+        card_price.textContent = `$${price.toFixed(2)}`;
+        card.appendChild(card_price);
+
+        let controls = document.createElement("div");
+        controls.setAttribute("class", "flex items-center");
+
+        let decreaseBtn = document.createElement("button");
+        decreaseBtn.textContent = "-";
+        decreaseBtn.setAttribute(
+          "class",
+          "bg-gray-300 px-2 py-1 rounded hover:bg-gray-400"
+        );
+        decreaseBtn.addEventListener("click", () =>
+          UpdateQuantity(id, price, -1)
+        );
+        controls.appendChild(decreaseBtn);
+
+        let quantity = document.createElement("p");
+        quantity.setAttribute("class", "mx-2 item-quantity");
+        quantity.textContent = "Qty: 1";
+        controls.appendChild(quantity);
+
+        let increaseBtn = document.createElement("button");
+        increaseBtn.textContent = "+";
+        increaseBtn.setAttribute(
+          "class",
+          "bg-gray-300 px-2 py-1 rounded hover:bg-gray-400"
+        );
+        increaseBtn.addEventListener("click", () =>
+          UpdateQuantity(id, price, 1)
+        );
+        controls.appendChild(increaseBtn);
+
+        card.appendChild(controls);
+
+        let delete_icon = document.createElement("h1");
+        delete_icon.textContent = "Delete";
+        delete_icon.setAttribute(
+          "class",
+          "text-red-500 text-sm ml-4 hover:underline cursor-pointer"
+        );
+
+        delete_icon.addEventListener("click", () => {
+          cart.removeChild(card);
+          subtotal -=
+            parseFloat(product_id[id].price) * product_id[id].quantity;
+          delete product_id[id];
+          UpdateTotalPrice();
+        });
+        card.appendChild(delete_icon);
+
+        cart.appendChild(card);
+
+        subtotal += parseFloat(price);
+        UpdateTotalPrice();
+      }
+
+      function UpdateQuantity(id, price, change) {
+        const item = product_id[id];
+        if (!item) return;
+
+        item.quantity += change;
+
+        if (item.quantity <= 0) {
+          const cartItem = document.getElementById(`cart-item-${id}`);
+          cart.removeChild(cartItem);
+          subtotal -= price;
+          delete product_id[id];
+        } else {
+          const cartItem = document.getElementById(`cart-item-${id}`);
+          const quantityElem = cartItem.querySelector(".item-quantity");
+          const priceElem = cartItem.querySelector(".item-price");
+
+          quantityElem.textContent = `Qty: ${item.quantity}`;
+          priceElem.textContent = `$${(item.quantity * price).toFixed(2)}`;
+          subtotal += price * change;
+        }
+
+        UpdateTotalPrice();
+      }
+
+      let discount = 0;
+
+      document.getElementById("apply-promo").addEventListener("click", () => {
+        const promoInput = document.getElementById("promo-code").value;
+        const promoMessage = document.getElementById("promo-message");
+
+        if (promoInput === "ostad10") {
+          discount = subtotal * 0.1;
+          promoMessage.textContent = "Promo code applied: 10% discount.";
+          promoMessage.classList.add("text-green-500");
+          promoMessage.classList.remove("text-red-500");
+        } else if (promoInput === "ostad5") {
+          discount = subtotal * 0.05;
+          promoMessage.textContent = "Promo code applied: 5% discount.";
+          promoMessage.classList.add("text-green-500");
+          promoMessage.classList.remove("text-red-500");
+        } else {
+          discount = 0;
+          promoMessage.textContent = "Invalid promo code.";
+          promoMessage.classList.add("text-red-500");
+          promoMessage.classList.remove("text-green-500");
+        }
+
+        UpdateTotalPrice();
+      });
+
+      function UpdateTotalPrice() {
+        document.getElementById("subtotal").textContent = subtotal.toFixed(2);
+        document.getElementById("discount").textContent = discount.toFixed(2);
+        document.getElementById("total-price").textContent = (
+          subtotal - discount
+        ).toFixed(2);
+      }
+
+      ApiCall();
+    </script>
+  </body>
+</html>
