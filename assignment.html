@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shopping Cart</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      /* Fix the cart section on the right */
+      #cart-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        width: 300px;
+        background-color: #f9f9f9;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        padding: 16px;
+        overflow-y: auto;
+        max-height: 80vh; /* Allows scrolling if items exceed height */
+      }
+
+      #price-container {
+        position: sticky;
+        bottom: 0;
+        background-color: #fff;
+        padding: 8px 16px;
+        box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+        border-top: 1px solid #e5e5e5;
+      }
+    </style>
+  </head>
+  <body>
+    <section>
+      <div class="grid grid-cols-12 gap-4">
+        <!-- Product List -->
+        <div class="col-start-2 col-span-8">
+          <div id="root" class="flex flex-wrap gap-4 justify-between"></div>
+        </div>
+
+        <!-- Cart Section -->
+        <div id="cart-container">
+          <h2 class="text-xl font-bold mb-4">Cart</h2>
+          <div id="cart" class="mb-4"></div>
+          <div id="price-container">
+            <p class="text-lg font-semibold">
+              Total Price: $<span id="price">0.00</span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <script>
+      const root = document.getElementById("root");
+      const cart = document.getElementById("cart");
+
+      async function ApiCall() {
+        const api_url = "https://fakestoreapi.com/products";
+        fetch(api_url)
+          .then((res) => res.json())
+          .then((res) => {
+            let products = res;
+            products.map((element) => ProductsUpdate(element));
+          });
+      }
+
+      function ProductsUpdate(element) {
+        // card
+        const card = document.createElement("div");
+        card.setAttribute(
+          "class",
+          "bg-white rounded-lg shadow-lg p-4 flex-none"
+        );
+        card.style.flexBasis = "calc(25% - 1rem)";
+
+        // img
+        let image_create = document.createElement("img");
+        image_create.setAttribute("src", element.image);
+        image_create.setAttribute(
+          "class",
+          "h-40 w-full object-cover rounded-t-lg"
+        );
+        card.appendChild(image_create);
+
+        const card_body = document.createElement("div");
+        card_body.setAttribute("class", "p-2");
+
+        // price
+        let price_create = document.createElement("p");
+        let price_text = document.createTextNode(`$${element.price}`);
+        price_create.setAttribute(
+          "class",
+          "text-center font-bold text-lg mt-4"
+        );
+        price_create.appendChild(price_text);
+        card_body.appendChild(price_create);
+
+        // title
+        let title_create = document.createElement("h3");
+        let title_text = document.createTextNode(element.title);
+        title_create.setAttribute(
+          "class",
+          "text-center text-green-500 text-sm font-medium"
+        );
+        title_create.appendChild(title_text);
+        card_body.appendChild(title_create);
+
+        // button
+        let button_create = document.createElement("button");
+        let button_text = document.createTextNode("Add to Cart");
+        button_create.setAttribute(
+          "class",
+          "w-full mt-6 bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-all"
+        );
+        button_create.appendChild(button_text);
+        card_body.appendChild(button_create);
+
+        // card append
+        card.appendChild(card_body);
+        root.appendChild(card);
+
+        // add to cart
+        button_create.addEventListener("click", () =>
+          AddToCard(element.id, element.image, element.price)
+        );
+      }
+
+      let total_price = 0;
+      let max_item = 5;
+      let product_id = {};
+
+      function AddToCard(id, img, price) {
+        // If the item is already in the cart, update the quantity and price
+        if (product_id[id]) {
+          const existingItem = document.getElementById(`cart-item-${id}`);
+          const quantityElem = existingItem.querySelector(".item-quantity");
+          const priceElem = existingItem.querySelector(".item-price");
+
+          // Update quantity
+          product_id[id].quantity++;
+          quantityElem.textContent = `Qty: ${product_id[id].quantity}`;
+
+          // Update total price for the item
+          const totalItemPrice = product_id[id].quantity * price;
+          priceElem.textContent = `$${totalItemPrice.toFixed(2)}`;
+
+          // Update overall total price
+          total_price += parseFloat(price);
+          UpdateTotalPrice();
+          return;
+        }
+
+        // Prevent adding more items if cart is full
+        if (cart.children.length == max_item) {
+          return;
+        }
+
+        // Add new item to the product_id object
+        product_id[id] = { img, price, quantity: 1 };
+
+        // Create the cart item container
+        const card = document.createElement("div");
+        card.setAttribute("id", `cart-item-${id}`);
+        card.setAttribute("class", "flex justify-between items-center mb-2");
+
+        // Add item image
+        let card_img = document.createElement("img");
+        card_img.setAttribute("src", img);
+        card_img.setAttribute("class", "h-[40px] w-[30px] rounded-lg ");
+        card.appendChild(card_img);
+
+        // Add item price
+        let card_price = document.createElement("p");
+        card_price.setAttribute("class", "text-sm item-price");
+        card_price.textContent = `$${price.toFixed(2)}`;
+        card.appendChild(card_price);
+
+        // Add quantity controls
+        let controls = document.createElement("div");
+        controls.setAttribute("class", "flex items-center");
+
+        // Decrease button
+        let decreaseBtn = document.createElement("button");
+        decreaseBtn.textContent = "-";
+        decreaseBtn.setAttribute(
+          "class",
+          "bg-gray-300 px-2 py-1 rounded hover:bg-gray-400"
+        );
+        decreaseBtn.addEventListener("click", () =>
+          UpdateQuantity(id, price, -1)
+        );
+        controls.appendChild(decreaseBtn);
+
+        // Quantity display
+        let quantity = document.createElement("p");
+        quantity.setAttribute("class", "mx-2 item-quantity");
+        quantity.textContent = "Qty: 1";
+        controls.appendChild(quantity);
+
+        // Increase button
+        let increaseBtn = document.createElement("button");
+        increaseBtn.textContent = "+";
+        increaseBtn.setAttribute(
+          "class",
+          "bg-gray-300 px-2 py-1 rounded hover:bg-gray-400"
+        );
+        increaseBtn.addEventListener("click", () =>
+          UpdateQuantity(id, price, 1)
+        );
+        controls.appendChild(increaseBtn);
+
+        card.appendChild(controls);
+
+        // Add delete icon
+        let delete_icon = document.createElement("h1");
+        delete_icon.textContent = "Delete";
+        delete_icon.setAttribute(
+          "class",
+          "text-red-500 text-sm ml-4 hover:underline cursor-pointer"
+        );
+
+        // Delete the item
+        delete_icon.addEventListener("click", () => {
+          cart.removeChild(card);
+          total_price -=
+            parseFloat(product_id[id].price) * product_id[id].quantity;
+          delete product_id[id]; // Remove item from product_id
+          UpdateTotalPrice();
+        });
+        card.appendChild(delete_icon);
+
+        // Append the item to the cart
+        cart.appendChild(card);
+
+        // Update total price
+        total_price += parseFloat(price);
+        UpdateTotalPrice();
+      }
+
+      function UpdateQuantity(id, price, change) {
+        const item = product_id[id];
+        if (!item) return;
+
+        item.quantity += change;
+
+        // Remove the item if quantity becomes 0
+        if (item.quantity <= 0) {
+          const cartItem = document.getElementById(`cart-item-${id}`);
+          cart.removeChild(cartItem);
+          total_price -= price;
+          delete product_id[id];
+        } else {
+          const cartItem = document.getElementById(`cart-item-${id}`);
+          const quantityElem = cartItem.querySelector(".item-quantity");
+          const priceElem = cartItem.querySelector(".item-price");
+
+          quantityElem.textContent = `Qty: ${item.quantity}`;
+          priceElem.textContent = `$${(item.quantity * price).toFixed(2)}`;
+          total_price += price * change;
+        }
+
+        UpdateTotalPrice();
+      }
+
+      function UpdateTotalPrice() {
+        let pc = document.getElementById("price");
+        pc.innerHTML = total_price.toFixed(2);
+      }
+
+      ApiCall();
+    </script>
+  </body>
+</html>
